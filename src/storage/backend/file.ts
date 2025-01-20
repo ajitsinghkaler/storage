@@ -88,6 +88,45 @@ export class FileBackend implements StorageBackendAdapter {
     const lastModified = new Date(0)
     lastModified.setUTCMilliseconds(data.mtimeMs)
 
+    // Handle If-None-Match header
+    if (headers?.ifNoneMatch) {
+      if (headers.ifNoneMatch === eTag) {
+        return {
+          metadata: {
+            cacheControl: cacheControl || 'no-cache',
+            mimetype: contentType || 'application/octet-stream',
+            lastModified: lastModified,
+            httpStatusCode: 304,
+            size: data.size,
+            eTag,
+            contentLength: fileSize,
+          },
+          httpStatusCode: 304,
+          body: undefined,
+        }
+      }
+    }
+
+    // Handle If-Modified-Since header
+    if (headers?.ifModifiedSince) {
+      const ifModifiedSince = new Date(headers.ifModifiedSince)
+      if (lastModified <= ifModifiedSince) {
+        return {
+          metadata: {
+            cacheControl: cacheControl || 'no-cache',
+            mimetype: contentType || 'application/octet-stream',
+            lastModified: lastModified,
+            httpStatusCode: 304,
+            size: data.size,
+            eTag,
+            contentLength: fileSize,
+          },
+          httpStatusCode: 304,
+          body: undefined,
+        }
+      }
+    }
+
     if (headers?.range) {
       const parts = headers.range.replace(/bytes=/, '').split('-')
       const startRange = parseInt(parts[0], 10)
